@@ -9,6 +9,10 @@ import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
+import java.lang.module.Configuration;
+
+import org.opencv.core.Mat;
+
 import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
@@ -20,9 +24,11 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.kinematics.SwerveModulePosition;
 import edu.wpi.first.math.kinematics.SwerveModuleState;
 import edu.wpi.first.math.trajectory.TrapezoidProfile;
+import edu.wpi.first.units.DistanceUnit;
 import edu.wpi.first.units.measure.Distance;
 import edu.wpi.first.units.measure.LinearVelocity;
 import edu.wpi.first.wpilibj.Encoder;
+import frc.robot.Constants;
 import frc.robot.Constants.ModuleConstants;
 import edu.wpi.first.wpilibj.motorcontrol.Spark;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -31,6 +37,9 @@ public class SwerveModule {
   private final TalonFX m_driveMotor;
   private final TalonFX m_turningMotor;
   private final CANcoder m_turningEncoder;
+  private double distance;
+  private double previousDist;
+  private double deltaDist;
 
   private final PIDController m_drivePIDController =
       new PIDController(ModuleConstants.kPModuleDriveController, 0, 0);
@@ -87,6 +96,8 @@ public class SwerveModule {
     // Limit the PID Controller's input range between -pi and pi and set the input
     // to be continuous.
     m_turningPIDController.enableContinuousInput(-Math.PI, Math.PI);
+
+    previousDist = m_driveMotor.getPosition().getValueAsDouble();
   }
 
   /**
@@ -124,6 +135,18 @@ public void setDesiredState(SwerveModuleState desiredState) {
     desiredState.cosineScale(encoderRotation);
 
     // Calculate the drive output from the drive PID controller.
+    SmartDashboard.putNumber("Encoder Brut" + m_driveMotor.getDeviceID(), m_driveMotor.getPosition().getValueAsDouble());
+    SmartDashboard.putNumber("Encoder Turn Brut" + m_turningMotor.getDeviceID(), getRotation());
+    SmartDashboard.putNumber("Encoder Turn Brut Motor" + m_turningMotor.getDeviceID(), m_turningMotor.getPosition().getValueAsDouble());
+    SmartDashboard.putNumber("Meters", getDriveDistanceMeter());
+    
+
+    getDriveDistanceMeter();
+    SmartDashboard.putNumber("deltaDist", deltaDist);
+    SmartDashboard.putNumber("previousDist", previousDist);
+    SmartDashboard.putNumber("dist", distance);
+
+
     SmartDashboard.putNumber("CurrentSpeedMetersPerSecond" + m_driveMotor.getDeviceID(), getDriveVelocityMetersPerSecond().in(MetersPerSecond));    
     SmartDashboard.putNumber("TargetSpeedMetersPerSecond" + m_driveMotor.getDeviceID(), desiredState.speedMetersPerSecond);
     final double driveOutput = m_drivePIDController.calculate(getDriveVelocityMetersPerSecond().in(MetersPerSecond), desiredState.speedMetersPerSecond);
@@ -135,8 +158,8 @@ public void setDesiredState(SwerveModuleState desiredState) {
     final double turnOutput = m_turningPIDController.calculate(getTurningRotation2d().getRadians(), desiredState.angle.getRadians());
     SmartDashboard.putNumber("turnOutput" + m_turningMotor.getDeviceID(), turnOutput);
 
-    // Calculate the turning motor output from the turning PID controller.
-    m_driveMotor.set(driveOutput);
+    //Calculate the turning motor output from the turning PID controller.
+    //m_driveMotor.set(driveOutput);
     //m_turningMotor.set(turnOutput);
   }
 
@@ -150,8 +173,28 @@ public void setDesiredState(SwerveModuleState desiredState) {
     return MetersPerSecond.of(m_driveMotor.getVelocity().getValueAsDouble());
   }
 
-  private Distance getDriveDistanceMeter() {
-    return Meters.of(m_driveMotor.getPosition().getValueAsDouble());
+  private Double getDriveDistanceMeter() {
+    deltaDist = m_driveMotor.getPosition().getValueAsDouble() - previousDist;
+    previousDist = m_driveMotor.getPosition().getValueAsDouble();
+
+    if (deltaDist < -16000) {
+        deltaDist += 32000;
+    }
+    if (deltaDist > 16000) {
+      deltaDist -= 32000;
+    }
+
+    distance += deltaDist;
+
+    double nbrTours = distance / Constants.DriveConstants.kTickParTour;
+
+    SmartDashboard.putNumber("Nbr Tours", nbrTours);
+    return nbrTours * Constants.DriveConstants.kCirconferenceRoueMeters;
+    
+  }
+
+  private Double getRotation() {
+    return m_turningEncoder.getPosition().getValueAsDouble() * 2 * Math.PI;
   }
 
   private Rotation2d getTurningRotation2d() {
