@@ -177,12 +177,12 @@ public void setDesiredState(SwerveModuleState desiredState) {
     deltaDist = m_driveMotor.getPosition().getValueAsDouble() - previousDist;
     previousDist = m_driveMotor.getPosition().getValueAsDouble();
 
-    if (deltaDist < -16000) {
-        deltaDist += 32000;
-    }
-    if (deltaDist > 16000) {
-      deltaDist -= 32000;
-    }
+    //if (deltaDist < -16000) {
+    //    deltaDist += 32000;
+    //}
+    //if (deltaDist > 16000) {
+    //  deltaDist -= 32000;
+    //}
 
     distance += deltaDist;
 
