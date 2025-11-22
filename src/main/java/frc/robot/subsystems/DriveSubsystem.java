@@ -22,33 +22,37 @@ public class DriveSubsystem extends SubsystemBase {
       new SwerveModule(
           DriveConstants.kFrontLeftDriveMotorPort,
           DriveConstants.kFrontLeftTurningMotorPort,
-          DriveConstants.kFrontLeftTurningEncoderPort/*,
-          DriveConstants.kFrontLeftDriveEncoderReversed,
-          DriveConstants.kFrontLeftTurningEncoderReversed*/);
+          DriveConstants.kFrontLeftTurningEncoderPort,
+          DriveConstants.kFrontLeftDriveMotorReversed,
+          DriveConstants.kFrontLeftTurnMotorReversed,
+          DriveConstants.kFrontLeftTurnEncoderReversed);
 
   private final SwerveModule m_rearLeft =
       new SwerveModule(
           DriveConstants.kRearLeftDriveMotorPort,
           DriveConstants.kRearLeftTurningMotorPort,
-          DriveConstants.kRearLeftTurningEncoderPort/* ,
-          DriveConstants.kRearLeftDriveEncoderReversed,
-          DriveConstants.kRearLeftTurningEncoderReversed*/);
+          DriveConstants.kRearLeftTurningEncoderPort ,
+          DriveConstants.kRearLeftDriveMotorReversed,
+          DriveConstants.kRearLeftTurnMotorReversed,
+          DriveConstants.kRearLeftTurnEncoderReversed);
 
   private final SwerveModule m_frontRight =
       new SwerveModule(
           DriveConstants.kFrontRightDriveMotorPort,
           DriveConstants.kFrontRightTurningMotorPort,
-          DriveConstants.kFrontRightTurningEncoderPort/*,
-          DriveConstants.kFrontRightDriveEncoderReversed,
-          DriveConstants.kFrontRightTurningEncoderReversed*/);
+          DriveConstants.kFrontRightTurningEncoderPort,
+          DriveConstants.kFrontRightDriveMotorReversed,
+          DriveConstants.kFrontRightTurnMotorReversed,
+          DriveConstants.kFrontRightTurnEncoderReversed);
 
   private final SwerveModule m_rearRight =
       new SwerveModule(
           DriveConstants.kRearRightDriveMotorPort,
           DriveConstants.kRearRightTurningMotorPort,
-          DriveConstants.kRearRightTurningEncoderPort/*,
-          DriveConstants.kRearRightDriveEncoderReversed,
-          DriveConstants.kRearRightTurningEncoderReversed*/);
+          DriveConstants.kRearRightTurningEncoderPort,
+          DriveConstants.kRearRightDriveMotorReversed,
+          DriveConstants.kRearRightTurnMotorReversed,
+          DriveConstants.kRearRightTurnEncoderReversed);
 
   // The gyro sensor
   //private final ADXRS450_Gyro m_gyro = new ADXRS450_Gyro();
@@ -117,8 +121,7 @@ public class DriveSubsystem extends SubsystemBase {
    * @param fieldRelative Whether the provided x and y speeds are relative to the field.
    */
   public void drive(double xSpeed, double ySpeed, double rot, boolean fieldRelative) {
-    var swerveModuleStates =
-        DriveConstants.kDriveKinematics.toSwerveModuleStates(
+    var swerveModuleStates = DriveConstants.kDriveKinematics.toSwerveModuleStates(
             ChassisSpeeds.discretize(
                 /*fieldRelative
                     ? ChassisSpeeds.fromFieldRelativeSpeeds(

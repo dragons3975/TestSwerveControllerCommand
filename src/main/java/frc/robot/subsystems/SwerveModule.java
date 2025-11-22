@@ -7,9 +7,11 @@ package frc.robot.subsystems;
 import static edu.wpi.first.units.Units.Degrees;
 import static edu.wpi.first.units.Units.Meters;
 import static edu.wpi.first.units.Units.MetersPerSecond;
+import static edu.wpi.first.units.Units.Radian;
 import static edu.wpi.first.units.Units.RotationsPerSecond;
 
 import java.lang.module.Configuration;
+import java.rmi.dgc.DGC;
 
 import org.opencv.core.Mat;
 
@@ -17,6 +19,8 @@ import com.ctre.phoenix6.configs.CANcoderConfiguration;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.hardware.CANcoder;
 import com.ctre.phoenix6.hardware.TalonFX;
+import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.SensorDirectionValue;
 
 import edu.wpi.first.math.controller.PIDController;
 import edu.wpi.first.math.controller.ProfiledPIDController;
@@ -34,15 +38,15 @@ import edu.wpi.first.wpilibj.motorcontrol.Spark;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 
 public class SwerveModule {
+
   private final TalonFX m_driveMotor;
   private final TalonFX m_turningMotor;
   private final CANcoder m_turningEncoder;
-  private double distance;
-  private double previousDist;
-  private double deltaDist;
+  private double distance = 0;
+  private double previousDist = 0;
+  //private double deltaDist = 0;
 
-  private final PIDController m_drivePIDController =
-      new PIDController(ModuleConstants.kPModuleDriveController, 0, 0);
+  private final PIDController m_drivePIDController = new PIDController(ModuleConstants.kPModuleDriveController, 0, 0);
 
   // Using a TrapezoidProfile PIDController to allow for smooth turning
   private final ProfiledPIDController m_turningPIDController =
@@ -54,50 +58,35 @@ public class SwerveModule {
               ModuleConstants.kMaxModuleAngularSpeedRadiansPerSecond,
               ModuleConstants.kMaxModuleAngularAccelerationRadiansPerSecondSquared));
 
-  /**
-   * Constructs a SwerveModule.
-   *
-   * @param driveMotorChannel The channel of the drive motor.
-   * @param turningMotorChannel The channel of the turning motor.
-   * @param driveEncoderChannels The channels of the drive encoder.
-   * @param turningEncoderChannels The channels of the turning encoder.
-   * @param driveEncoderReversed Whether the drive encoder is reversed.
-   * @param turningEncoderReversed Whether the turning encoder is reversed.
-   */
-  public SwerveModule(
-      int driveMotorChannel,
-      int turningMotorChannel,
-      int turningEncoderChannel/*, 
-      boolean driveEncoderReversed,
-      boolean turningEncoderReversed*/) {
+
+  public SwerveModule(int driveMotorChannel, int turningMotorChannel, int turningEncoderChannel, 
+      boolean driveMotorReversed,
+      boolean turnMotorReversed,
+      boolean turnEncoderReversed)
+  {
     m_driveMotor = new TalonFX(driveMotorChannel);
     m_turningMotor = new TalonFX(turningMotorChannel);
 
     m_turningEncoder = new CANcoder(turningEncoderChannel);
 
-    // Set the distance per pulse for the drive encoder. We can simply use the
-    // distance traveled for one rotation of the wheel divided by the encoder
-    // resolution.
-    TalonFXConfiguration driveConfig = new TalonFXConfiguration();
-    driveConfig.Feedback.SensorToMechanismRatio = ModuleConstants.kDriveEncoderDistancePerPulse;
-    // Set whether drive encoder should be reversed or not
-    //m_driveEncoder.setReverseDirection(driveEncoderReversed);
-    m_driveMotor.getConfigurator().apply(driveConfig);
+    TalonFXConfiguration driveMotorConfig = new TalonFXConfiguration();
+    driveMotorConfig.Feedback.SensorToMechanismRatio = 1/ModuleConstants.kDriveDistanceParTick;
+    driveMotorConfig.MotorOutput.Inverted = driveMotorReversed ? InvertedValue.CounterClockwise_Positive : InvertedValue.Clockwise_Positive;
+    m_driveMotor.getConfigurator().apply(driveMotorConfig);
 
-    // Set the distance (in this case, angle) in radians per pulse for the turning encoder.
-    // This is the the angle through an entire rotation (2 * pi) divided by the
-    // encoder resolution.
-    CANcoderConfiguration turningConfig = new CANcoderConfiguration();
-    driveConfig.Feedback.SensorToMechanismRatio = ModuleConstants.kTurningEncoderDistancePerPulse;
-    // Set whether turning encoder should be reversed or not
-    //m_turningEncoder.setReverseDirection(turningEncoderReversed);
-    m_turningEncoder.getConfigurator().apply(turningConfig);
+    TalonFXConfiguration turnMotorConfig = new TalonFXConfiguration();
+    turnMotorConfig.MotorOutput.Inverted = turnMotorReversed ? InvertedValue.CounterClockwise_Positive : InvertedValue.Clockwise_Positive;
+    m_turningMotor.getConfigurator().apply(turnMotorConfig);
+
+    CANcoderConfiguration turnEncoderConfig = new CANcoderConfiguration();
+    m_turningEncoder.getConfigurator().refresh(turnEncoderConfig); // Lire la config actuelle pour ne pas écraser l'offset configuré avec Phoenix Tuner
+    turnEncoderConfig.MagnetSensor.SensorDirection = turnEncoderReversed ? SensorDirectionValue.CounterClockwise_Positive : SensorDirectionValue.Clockwise_Positive;
+    m_turningEncoder.getConfigurator().apply(turnEncoderConfig);
 
     // Limit the PID Controller's input range between -pi and pi and set the input
     // to be continuous.
     m_turningPIDController.enableContinuousInput(-Math.PI, Math.PI);
-
-    previousDist = m_driveMotor.getPosition().getValueAsDouble();
+    //m_turningPIDController.setTolerance(Radian.convertFrom(90, Degrees));
   }
 
   /**
@@ -105,18 +94,18 @@ public class SwerveModule {
    *
    * @return The current state of the module.
    */
-  public SwerveModuleState getState() {
+  /*public SwerveModuleState getState() {
     return new SwerveModuleState(getDriveVelocityMetersPerSecond(), getTurningRotation2d());
-  }
+  }*/
 
   /**
    * Returns the current position of the module.
    *
    * @return The current position of the module.
    */
-  public SwerveModulePosition getPosition() {
+  /*public SwerveModulePosition getPosition() {
     return new SwerveModulePosition(getDriveDistanceMeter(), getTurningRotation2d());
-  }
+  }*/
 
   /**
    * Sets the desired state for the module.
@@ -135,21 +124,20 @@ public void setDesiredState(SwerveModuleState desiredState) {
     desiredState.cosineScale(encoderRotation);
 
     // Calculate the drive output from the drive PID controller.
-    SmartDashboard.putNumber("Encoder Brut" + m_driveMotor.getDeviceID(), m_driveMotor.getPosition().getValueAsDouble());
-    SmartDashboard.putNumber("Encoder Turn Brut" + m_turningMotor.getDeviceID(), getRotation());
-    SmartDashboard.putNumber("Encoder Turn Brut Motor" + m_turningMotor.getDeviceID(), m_turningMotor.getPosition().getValueAsDouble());
-    SmartDashboard.putNumber("Meters", getDriveDistanceMeter());
+    //SmartDashboard.putNumber("Encoder Brut" + m_driveMotor.getDeviceID(), m_driveMotor.getPosition().getValueAsDouble());
+    //SmartDashboard.putNumber("Encoder Turn Brut" + m_turningMotor.getDeviceID(), getRotation());
+    //SmartDashboard.putNumber("Encoder Turn Brut Motor" + m_turningMotor.getDeviceID(), m_turningMotor.getPosition().getValueAsDouble());
+    //SmartDashboard.putNumber("Meters", getDriveDistanceMeter());
     
+    //SmartDashboard.putNumber("deltaDist", deltaDist);
+    //SmartDashboard.putNumber("previousDist", previousDist);
+    //SmartDashboard.putNumber("dist", distance);
 
-    getDriveDistanceMeter();
-    SmartDashboard.putNumber("deltaDist", deltaDist);
-    SmartDashboard.putNumber("previousDist", previousDist);
-    SmartDashboard.putNumber("dist", distance);
-
-
-    SmartDashboard.putNumber("CurrentSpeedMetersPerSecond" + m_driveMotor.getDeviceID(), getDriveVelocityMetersPerSecond().in(MetersPerSecond));    
+    /*SmartDashboard.putNumber("CurrentSpeedMetersPerSecond" + m_driveMotor.getDeviceID(), getDriveVelocityMetersPerSecond());    
     SmartDashboard.putNumber("TargetSpeedMetersPerSecond" + m_driveMotor.getDeviceID(), desiredState.speedMetersPerSecond);
-    final double driveOutput = m_drivePIDController.calculate(getDriveVelocityMetersPerSecond().in(MetersPerSecond), desiredState.speedMetersPerSecond);
+    SmartDashboard.putNumber("EncodeurBrut" + m_driveMotor.getDeviceID(), m_driveMotor.getPosition().getValueAsDouble());*/
+
+    final double driveOutput = m_drivePIDController.calculate(getDriveVelocityMetersPerSecond(), desiredState.speedMetersPerSecond);    
     SmartDashboard.putNumber("driveOutput" + m_driveMotor.getDeviceID(), driveOutput);
 
     // Calculate the turning motor output from the turning PID controller.
@@ -159,8 +147,8 @@ public void setDesiredState(SwerveModuleState desiredState) {
     SmartDashboard.putNumber("turnOutput" + m_turningMotor.getDeviceID(), turnOutput);
 
     //Calculate the turning motor output from the turning PID controller.
-    //m_driveMotor.set(driveOutput);
-    //m_turningMotor.set(turnOutput);
+    m_driveMotor.set(driveOutput);
+    m_turningMotor.set(turnOutput);
   }
 
   /** Zeroes all the SwerveModule encoders. */
@@ -169,32 +157,8 @@ public void setDesiredState(SwerveModuleState desiredState) {
     m_turningEncoder.reset();
   }*/
 
-  private LinearVelocity getDriveVelocityMetersPerSecond() {
-    return MetersPerSecond.of(m_driveMotor.getVelocity().getValueAsDouble());
-  }
-
-  private Double getDriveDistanceMeter() {
-    deltaDist = m_driveMotor.getPosition().getValueAsDouble() - previousDist;
-    previousDist = m_driveMotor.getPosition().getValueAsDouble();
-
-    //if (deltaDist < -16000) {
-    //    deltaDist += 32000;
-    //}
-    //if (deltaDist > 16000) {
-    //  deltaDist -= 32000;
-    //}
-
-    distance += deltaDist;
-
-    double nbrTours = distance / Constants.DriveConstants.kTickParTour;
-
-    SmartDashboard.putNumber("Nbr Tours", nbrTours);
-    return nbrTours * Constants.DriveConstants.kCirconferenceRoueMeters;
-    
-  }
-
-  private Double getRotation() {
-    return m_turningEncoder.getPosition().getValueAsDouble() * 2 * Math.PI;
+  private double getDriveVelocityMetersPerSecond() {
+    return m_driveMotor.getVelocity().getValueAsDouble();
   }
 
   private Rotation2d getTurningRotation2d() {
